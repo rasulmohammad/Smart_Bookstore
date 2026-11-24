@@ -1,0 +1,100 @@
+@startdot
+digraph UC01 {
+  graph [rankdir=TB, fontname="Arial", fontsize=18, labelloc=t, nodesep=0.45, ranksep=0.38, pad=0.3, dpi=150,
+         label="Petri Net: UC-01 Biometric Login & Multimodal Authentication (Subsystem 1)\n\n"];
+  node  [fontname="Arial"];
+  edge  [penwidth=1.4, arrowsize=0.8, color="#333333"];
+
+  // ---------- places ----------
+  node [shape=circle, fixedsize=true, width=1.2, fontsize=10.5, penwidth=2, style=filled, fillcolor="#FFFFFF", color="#1f2a44"];
+  P0  [label="P0\n●\nLogin screen", fillcolor="#E3F2FD"];
+  P1  [label="P1\nCapture\nrequested"];
+  P2  [label="P2\nCamera\nready"];
+  P3  [label="P3\nMic\nready"];
+  P4  [label="P4\nImage\ncaptured"];
+  P5  [label="P5\nAudio clip\nrecorded"];
+  P6  [label="P6\nFace crop"];
+  P7  [label="P7\nMFCC\nfeatures"];
+  P8  [label="P8\nFace result\n(id, conf)"];
+  P9  [label="P9\nVoice result\n(id, conf)"];
+  P10 [label="P10\nResults\nfused"];
+  P11 [label="P11\nIdentity\nconfirmed"];
+  P12 [label="P12\nUser record\nloaded"];
+  P13 [label="P13\nSession\ncreated"];
+  PE1 [label="PE1\nHardware\nerror shown", color="#a61b1b"];
+  PE2 [label="PE2\nVerification\nfailed shown", color="#a61b1b"];
+
+  node [shape=doublecircle, width=1.15];
+  END_VS   [label="Visitor\nsession\n(VS)"];
+  END_DASH [label="Role\ndashboard\n(RC/VC/SU)", fillcolor="#E8F5E9"];
+  END_SUSP [label="Login\nblocked\n(UC-02)", color="#a61b1b", fillcolor="#FDECEA"];
+  END_CXL  [label="Login\ncancelled", color="#a61b1b"];
+
+  // ---------- transitions ----------
+  node [shape=box, fixedsize=false, width=0, height=0.34, fontsize=11, style=filled, fillcolor="#1f2a44", fontcolor=white, penwidth=0, margin="0.14,0.05"];
+  t1  [label="t1  AuthView.enterAsVisitor()"];
+  t2  [label="t2  select Biometric Login"];
+  t3  [label="t3  open camera + microphone  [devices OK]\n(fork: face and voice run in parallel)"];
+  t5  [label="t5  capture face frame"];
+  t6  [label="t6  record voice sample"];
+  t7  [label="t7  FaceRecognizer.detectFace()  [face found]"];
+  t9  [label="t9  VoiceClassifier.extractFeatures()  [speech found]"];
+  t11 [label="t11  FaceRecognizer.identify()"];
+  t12 [label="t12  VoiceClassifier.identify()"];
+  t13 [label="t13  BiometricAuth fuses results\n(join: waits for BOTH P8 and P9)"];
+  t14 [label="t14  [face conf ≥ T  AND  voice conf ≥ T\nAND  faceId = voiceId]"];
+  t16 [label="t16  UserRepository.get(userId)  [record exists]"];
+  t18 [label="t18  AccountManager.checkStatus()  [Normal]\ncreate Session(user, role)"];
+  t20 [label="t20  load dashboard for role"];
+  t21 [label="t21  retry"];
+
+  node [fillcolor="#a61b1b"];
+  t4  [label="t4  [camera or mic unavailable]"];
+  t8  [label="t8  [no face detected]  conf = 0"];
+  t10 [label="t10  [silence / clip too short]  conf = 0"];
+  t15 [label="t15  [face conf < T  OR  voice conf < T\nOR  faceId ≠ voiceId]"];
+  t17 [label="t17  [no record for userId]"];
+  t19 [label="t19  checkStatus()  [Suspended]"];
+  t22 [label="t22  acknowledge"];
+  t23 [label="t23  cancel"];
+
+  // ---------- arcs: normal path ----------
+  P0 -> t1 -> END_VS;
+  P0 -> t2 -> P1;
+  P1 -> t3;
+  t3 -> P2; t3 -> P3;
+  P2 -> t5 -> P4;
+  P3 -> t6 -> P5;
+  P4 -> t7 -> P6 -> t11 -> P8;
+  P5 -> t9 -> P7 -> t12 -> P9;
+  P8 -> t13; P9 -> t13;
+  t13 -> P10;
+  P10 -> t14 -> P11;
+  P11 -> t16 -> P12;
+  P12 -> t18 -> P13;
+  P13 -> t20 -> END_DASH;
+  PE2 -> t21 -> P1;
+
+  // ---------- arcs: exception paths ----------
+  edge [color="#a61b1b"];
+  P1 -> t4 -> PE1;
+  PE1 -> t22 -> P0;
+  P4 -> t8 -> P8;
+  P5 -> t10 -> P9;
+  P10 -> t15 -> PE2;
+  P11 -> t17 -> PE2;
+  P12 -> t19 -> END_SUSP;
+  PE2 -> t23 -> END_CXL;
+
+  // ---------- legend ----------
+  legend [shape=plaintext, style="", fontcolor="#222222", fontsize=11, label=<
+    <table border="1" cellborder="0" cellspacing="2" cellpadding="3" color="#888888">
+      <tr><td align="left"><b>Legend</b></td></tr>
+      <tr><td align="left">○  Place (state)      ◎  Final place      ●  Initial token</td></tr>
+      <tr><td align="left"><font color="#1f2a44">■</font>  Transition (normal)     <font color="#a61b1b">■</font>  Transition (exception)</td></tr>
+      <tr><td align="left">[ ... ]  Guard condition.   T = match-confidence threshold</td></tr>
+      <tr><td align="left">t3 = fork (1 token in, 2 out).   t13 = join (2 in, 1 out)</td></tr>
+    </table>>];
+  END_DASH -> legend [style=invis];
+}
+@enddot

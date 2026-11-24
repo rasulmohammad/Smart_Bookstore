@@ -1,0 +1,88 @@
+@startuml
+allowmixing
+skinparam dpi 130
+skinparam shadowing false
+skinparam classAttributeIconSize 0
+skinparam defaultFontName Arial
+skinparam defaultFontSize 12
+skinparam packageStyle rectangle
+skinparam ArrowColor #444444
+skinparam class {
+  BorderColor #555555
+  BackgroundColor #FFFFFF
+}
+hide empty members
+
+title 1.7  Subsystem 5: RAG Intelligence & Inventory Administration (Rosina)
+
+package "View (GUI)" #E0F2F1 {
+  class ChatView <<view>> {
+    +sendQuery(text)
+    +showAnswer(text, source)
+  }
+  class InventoryView <<SU view>> {
+    +addBookForm()
+    +removeBook(bookId)
+    +autoPrune()
+  }
+}
+
+package "Controller" #B2DFDB {
+  class RagAssistant <<controller>> {
+    +answer(session, query): Answer
+    -isLocalQuestion(query): bool
+  }
+  class AccessPolicy <<controller>> {
+    +allowed(role, topic): bool
+  }
+  class InventoryManager <<controller>> {
+    +addBook(fields)
+    +removeBook(bookId)
+    +autoPrune(n)
+    -validate(fields)
+  }
+}
+
+package "Local AI services" #E8EAF6 {
+  class VectorIndex <<embeddings>> {
+    +build(docs)
+    +search(query, k): hits, score
+  }
+  class OllamaClient <<Ollama>> {
+    +embed(text): vector
+    +generate(prompt): text
+  }
+}
+
+package "Model / Data" #F5F5F5 {
+  class Answer <<entity>> {
+    text
+    source: RAG | LLM | DENIED
+  }
+  folder "rag_docs/\nstore + team info (.txt)" as RD
+  database "vector_index.json" as VI
+}
+
+package "From other subsystems" #EEEEEE {
+  class Session <<S1>>
+  class BookRepository <<S2>>
+  class BrowseTracker <<S2>>
+  class FinanceReport <<S3>>
+  class OrderListPolicy <<S4>>
+}
+
+ChatView --> RagAssistant : answer()
+RagAssistant --> AccessPolicy : check role
+RagAssistant --> VectorIndex : similarity search
+RagAssistant --> OllamaClient : generate answer
+RagAssistant ..> Answer : returns
+RagAssistant ..> Session : role
+RagAssistant ..> FinanceReport : SU only
+VectorIndex --> OllamaClient : embed()
+VectorIndex --> RD : index docs
+VectorIndex --> VI
+InventoryView --> InventoryManager
+InventoryManager ..> BookRepository : add / remove
+InventoryManager ..> BrowseTracker : least-accessed books
+InventoryManager ..> OrderListPolicy : to-order / no-order lists
+@enduml

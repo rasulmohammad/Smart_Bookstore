@@ -1,0 +1,88 @@
+@startdot
+digraph UC07 {
+  graph [rankdir=TB, fontname="Arial", fontsize=18, labelloc=t, nodesep=0.45, ranksep=0.38, pad=0.3, dpi=150,
+         label="Petri Net: UC-07 Purchase Book & Account Balance Deduction (Subsystem 3)\n\n"];
+  node  [fontname="Arial"];
+  edge  [penwidth=1.4, arrowsize=0.8, color="#333333"];
+
+  // ---------- places ----------
+  node [shape=circle, fixedsize=true, width=1.2, fontsize=10.5, penwidth=2, style=filled, fillcolor="#FFFFFF", color="#1f2a44"];
+  P0   [label="P0\n●\nBook page\nopen", fillcolor="#E3F2FD"];
+  LOCK [label="L\n●\nJSON store\nlock", fillcolor="#FFF8E1", color="#b26a00"];
+  P1   [label="P1\nConfirm\ndialog shown"];
+  P2   [label="P2\nLock held,\nuser + book\nloaded"];
+  P3   [label="P3\nPurchase\neligible"];
+  P4   [label="P4\nFinal price\nset"];
+  P5   [label="P5\nBalance\ndebited"];
+  FOK  [label="F1\nNo-overdraft\nflag"];
+  FOD  [label="F2\nOverdraft\nflag", color="#a61b1b"];
+  P6   [label="P6\nOrder +\nledger\nrecorded"];
+  P7   [label="P7\nTier\nchecked"];
+  P8   [label="P8\nResult\nmessage\nready"];
+
+  node [shape=doublecircle, width=1.15];
+  END_OK  [label="Result\nshown,\nlock freed", fillcolor="#E8F5E9"];
+  END_CXL [label="Purchase\ncancelled", color="#a61b1b"];
+
+  // ---------- transitions ----------
+  node [shape=box, fixedsize=false, width=0, height=0.34, fontsize=11, style=filled, fillcolor="#1f2a44", fontcolor=white, penwidth=0, margin="0.14,0.05"];
+  t1  [label="t1  click Purchase\nPurchaseView.confirmPurchase(book)"];
+  t3  [label="t3  confirm  (takes lock token L)\nread user + book from JSON"];
+  t6  [label="t6  [status = Normal  AND  stock > 0]"];
+  t7  [label="t7  [role = VC]  applyDiscount: price × 0.9"];
+  t8  [label="t8  [role = RC]  price unchanged"];
+  t9  [label="t9  [balance ≥ price]\nbalance = balance − price"];
+  t11 [label="t11  OrderRepository.add(order)\nLedger.record(PURCHASE)\nBookRepository.decrementStock()"];
+  t12 [label="t12  TierPolicy.checkUpgrade()\n[RC AND (purchases > 3 OR spent > $200)]\npromote RC → VC, notify"];
+  t13 [label="t13  checkUpgrade()  [no upgrade]"];
+  t14 [label="t14  (uses F1)  show receipt"];
+  t16 [label="t16  release lock (returns L), show result"];
+
+  node [fillcolor="#a61b1b"];
+  t2  [label="t2  cancel"];
+  t4  [label="t4  [status ≠ Normal]\nmsg: account suspended"];
+  t5  [label="t5  [stock = 0]\nmsg: out of stock"];
+  t10 [label="t10  [balance < price]  OVERDRAFT\nbalance = balance − price − $1 fine\nLedger.record(FINE)"];
+  t15 [label="t15  (uses F2)  AccountManager.suspend()\nshow receipt + suspension notice (UC-02)"];
+
+  // ---------- arcs: normal path ----------
+  P0 -> t1 -> P1;
+  P1 -> t3;
+  LOCK -> t3 [color="#b26a00", style=dashed];
+  t3 -> P2;
+  P2 -> t6 -> P3;
+  P3 -> t7 -> P4;
+  P3 -> t8 -> P4;
+  P4 -> t9;
+  t9 -> P5; t9 -> FOK;
+  P5 -> t11 -> P6;
+  P6 -> t12 -> P7;
+  P6 -> t13 -> P7;
+  P7 -> t14; FOK -> t14;
+  t14 -> P8;
+  P8 -> t16 -> END_OK;
+  t16 -> LOCK [color="#b26a00", style=dashed, constraint=false];
+
+  // ---------- arcs: exception paths ----------
+  edge [color="#a61b1b"];
+  P1 -> t2 -> END_CXL;
+  P2 -> t4 -> P8;
+  P2 -> t5 -> P8;
+  P4 -> t10;
+  t10 -> P5; t10 -> FOD;
+  P7 -> t15; FOD -> t15;
+  t15 -> P8;
+
+  // ---------- legend ----------
+  legend [shape=plaintext, style="", fontcolor="#222222", fontsize=11, label=<
+    <table border="1" cellborder="0" cellspacing="2" cellpadding="3" color="#888888">
+      <tr><td align="left"><b>Legend</b></td></tr>
+      <tr><td align="left">○  Place (state)      ◎  Final place      ●  Initial token</td></tr>
+      <tr><td align="left"><font color="#1f2a44">■</font>  Transition (normal)     <font color="#a61b1b">■</font>  Transition (exception)</td></tr>
+      <tr><td align="left">[ ... ]  Guard condition</td></tr>
+      <tr><td align="left"><font color="#b26a00">L (dashed arcs)</font>: one lock token, so only one purchase writes the JSON store at a time</td></tr>
+      <tr><td align="left">F1 / F2: flag places that carry the overdraft outcome to t14 / t15</td></tr>
+    </table>>];
+  END_OK -> legend [style=invis];
+}
+@enddot

@@ -1,0 +1,76 @@
+@startdot
+digraph UC10 {
+  graph [rankdir=TB, fontname="Arial", fontsize=18, labelloc=t, nodesep=0.45, ranksep=0.38, pad=0.3, dpi=150,
+         label="Petri Net: UC-10 Censored Word Filtering & Violation Enforcement (Subsystem 4)\n\n"];
+  node  [fontname="Arial"];
+  edge  [penwidth=1.4, arrowsize=0.8, color="#333333"];
+
+  // ---------- places ----------
+  node [shape=circle, fixedsize=true, width=1.2, fontsize=10.5, penwidth=2, style=filled, fillcolor="#FFFFFF", color="#1f2a44"];
+  P0  [label="P0\n●\nReview\nsubmitted\n(UC-09)", fillcolor="#E3F2FD"];
+  TL  [label="TL\n●\nTaboo word\nlist", fillcolor="#FFF8E1", color="#b26a00"];
+  P1  [label="P1\nScanned\n(n taboo\nwords)"];
+  P2  [label="P2\nReady to\npublish"];
+  P3  [label="P3\nReview\npublished"];
+  P4  [label="P4\nWeighted avg\nupdated"];
+  P5  [label="P5\nReview\nblocked", color="#a61b1b"];
+  P6  [label="P6\nWarning\nissued\n(w = count)", color="#a61b1b"];
+
+  node [shape=doublecircle, width=1.15];
+  END_PUB  [label="Review\npublic", fillcolor="#E8F5E9"];
+  END_WARN [label="Blocked,\nwarning\nnotice", color="#a61b1b", fillcolor="#FDECEA"];
+  END_SUSP [label="Blocked,\nRC\nsuspended\n(UC-02)", color="#a61b1b", fillcolor="#FDECEA"];
+  END_DEM  [label="Blocked,\nVC demoted\nto RC", color="#a61b1b", fillcolor="#FDECEA"];
+
+  // ---------- transitions ----------
+  node [shape=box, fixedsize=false, width=0, height=0.34, fontsize=11, style=filled, fillcolor="#1f2a44", fontcolor=white, penwidth=0, margin="0.14,0.05"];
+  t0  [label="t0  [taboo list empty]\npublish text as written"];
+  t1  [label="t1  [list not empty]  ModerationFilter.scan(text)\n(reads TL, puts token back)"];
+  t2  [label="t2  [n = 0]  text unchanged"];
+  t3  [label="t3  [1 ≤ n ≤ 3]  replace each taboo word with *"];
+  t4  [label="t4  ReviewRepository.add(review, Published)\nweight set by OrderRepository.hasPurchased()"];
+  t5  [label="t5  ReviewService.weightedAverage()\nBookRepository: update avgRating"];
+  t6  [label="t6  OrderListPolicy.evaluate()\n[ratings > 3 AND avg < 2]  add to no-order list"];
+  t7  [label="t7  OrderListPolicy.evaluate()\n[ratings > 3 AND avg > 4]  add to to-order list"];
+  t8  [label="t8  OrderListPolicy.evaluate()\n[ratings ≤ 3 OR 2 ≤ avg ≤ 4]  no list change"];
+
+  node [fillcolor="#a61b1b"];
+  t9  [label="t9  [n > 3]  block review\nReviewRepository.add(review, Blocked)"];
+  t10 [label="t10  ConductEnforcer.onBlocked()\nAccountManager.addWarning():  w = w + 1"];
+  t11 [label="t11  [role = RC  AND  w ≤ 2]\nshow warning notice"];
+  t12 [label="t12  [role = RC  AND  w > 2]\nAccountManager.suspend()"];
+  t13 [label="t13  [role = VC]\nAccountManager.demote()"];
+
+  // ---------- arcs: normal path ----------
+  P0 -> t0 -> P2;
+  P0 -> t1 -> P1;
+  TL -> t1 [color="#b26a00", style=dashed, dir=both];
+  P1 -> t2 -> P2;
+  P1 -> t3 -> P2;
+  P2 -> t4 -> P3;
+  P3 -> t5 -> P4;
+  P4 -> t6 -> END_PUB;
+  P4 -> t7 -> END_PUB;
+  P4 -> t8 -> END_PUB;
+
+  // ---------- arcs: exception paths ----------
+  edge [color="#a61b1b"];
+  P1 -> t9 -> P5;
+  P5 -> t10 -> P6;
+  P6 -> t11 -> END_WARN;
+  P6 -> t12 -> END_SUSP;
+  P6 -> t13 -> END_DEM;
+
+  // ---------- legend ----------
+  legend [shape=plaintext, style="", fontcolor="#222222", fontsize=11, label=<
+    <table border="1" cellborder="0" cellspacing="2" cellpadding="3" color="#888888">
+      <tr><td align="left"><b>Legend</b></td></tr>
+      <tr><td align="left">○  Place (state)      ◎  Final place      ●  Initial token</td></tr>
+      <tr><td align="left"><font color="#1f2a44">■</font>  Transition (normal)     <font color="#a61b1b">■</font>  Transition (exception)</td></tr>
+      <tr><td align="left">[ ... ]  Guard condition.   n = taboo words found.   w = author's warnings</td></tr>
+      <tr><td align="left"><font color="#b26a00">TL (two-way dashed arc)</font>: t1 reads the list and returns the token.</td></tr>
+      <tr><td align="left">The SU edits TL in UC-11, so a new list applies to the next review.</td></tr>
+    </table>>];
+  END_PUB -> legend [style=invis];
+}
+@enddot

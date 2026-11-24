@@ -1,0 +1,103 @@
+@startuml
+allowmixing
+skinparam dpi 130
+skinparam shadowing false
+skinparam classAttributeIconSize 0
+skinparam defaultFontName Arial
+skinparam defaultFontSize 12
+skinparam packageStyle rectangle
+skinparam ArrowColor #444444
+skinparam class {
+  BorderColor #555555
+  BackgroundColor #FFFFFF
+}
+hide empty members
+
+title 1.5  Subsystem 3: Transaction, Deposit & Financial Processing (Dair)
+
+package "View (GUI)" #FFF3E0 {
+  class PurchaseView <<view>> {
+    +confirmPurchase(book)
+    +showReceipt(receipt)
+  }
+  class DepositView <<view>> {
+    +enterAmount(amount)
+    +showBalance(balance)
+  }
+  class FinanceView <<SU view>> {
+    +showReport(report)
+  }
+}
+
+package "Controller" #FFE0B2 {
+  class TransactionService <<controller>> {
+    +purchase(user, book): Receipt
+    -applyDiscount(user, price): price
+    -applyOverdraftFine(user)
+  }
+  class DepositService <<controller>> {
+    +deposit(user, amount): balance
+  }
+  class FinanceReport <<controller>> {
+    +summary(period): Report
+  }
+}
+
+package "Model / Data" #F5F5F5 {
+  class Order <<entity>> {
+    orderId
+    userId
+    bookId
+    listPrice
+    discount
+    finalPrice
+    timestamp
+  }
+  class LedgerEntry <<entity>> {
+    entryId
+    userId
+    type: PURCHASE | DEPOSIT | FINE
+    amount
+    balanceAfter
+    timestamp
+  }
+  class OrderRepository <<repository>> {
+    +add(order)
+    +byUser(userId): Order[]
+    +hasPurchased(userId, bookId): bool
+  }
+  class Ledger <<repository>> {
+    +record(entry)
+    +entries(period): LedgerEntry[]
+  }
+  database "orders.json" as OJ
+  database "ledger.json" as LJ
+}
+
+package "From other subsystems" #EEEEEE {
+  class UserRepository <<S1>>
+  class AccountManager <<S1>>
+  class TierPolicy <<S1>>
+  class BookRepository <<S2>>
+  class RagAssistant <<S5>>
+}
+
+PurchaseView --> TransactionService : purchase()
+DepositView --> DepositService : deposit()
+FinanceView --> FinanceReport
+TransactionService --> OrderRepository
+TransactionService --> Ledger
+TransactionService ..> UserRepository : read / update balance
+TransactionService ..> BookRepository : decrementStock()
+TransactionService ..> AccountManager : suspend() if balance < 0
+TransactionService ..> TierPolicy : checkUpgrade()
+DepositService --> Ledger
+DepositService ..> UserRepository : credit balance
+FinanceReport --> Ledger
+FinanceReport --> OrderRepository
+RagAssistant ..> FinanceReport : SU finance questions
+OrderRepository ..> Order
+Ledger ..> LedgerEntry
+OrderRepository --> OJ
+Ledger --> LJ
+@enduml

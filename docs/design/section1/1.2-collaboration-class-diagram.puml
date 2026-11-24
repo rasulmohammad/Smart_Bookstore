@@ -1,0 +1,183 @@
+@startuml
+skinparam dpi 110
+skinparam nodesep 25
+skinparam ranksep 45
+skinparam shadowing false
+skinparam classAttributeIconSize 0
+skinparam defaultFontName Arial
+skinparam defaultFontSize 12
+skinparam packageStyle rectangle
+skinparam ArrowColor #444444
+skinparam class {
+  BorderColor #555555
+  BackgroundColor #FFFFFF
+}
+hide members
+hide circle
+left to right direction
+
+title 1.2  Collaboration Class Diagram: Full System (all 5 subsystems)
+
+package "Shared" as P0 #EEEEEE {
+  class MainWindow <<view>>
+  class Session <<entity>>
+  class JsonStore <<infrastructure>>
+}
+
+package "S1 Biometric Auth & User Mgmt (Rasul)" as P1 #E3F2FD {
+  class AuthView <<view>>
+  class EnrollmentView <<view>>
+  class SuspendedUsersView <<SU view>>
+  class BiometricAuth <<controller>>
+  class AccountManager <<controller>>
+  class TierPolicy <<controller>>
+  class FaceRecognizer <<YOLOv8>>
+  class VoiceClassifier <<audio>>
+  class UserRepository <<repository>>
+  class User <<entity>>
+}
+
+package "S2 Catalog & Recommendation (Thierno)" as P2 #E8F5E9 {
+  class HomeView <<view>>
+  class CatalogView <<view>>
+  class BookDetailView <<view>>
+  class RecommendationEngine <<controller>>
+  class SearchService <<controller>>
+  class BrowseTracker <<controller>>
+  class ImageMatcher <<vision>>
+  class BookRepository <<repository>>
+  class Book <<entity>>
+}
+
+package "S3 Transactions & Finance (Dair)" as P3 #FFF3E0 {
+  class PurchaseView <<view>>
+  class DepositView <<view>>
+  class FinanceView <<SU view>>
+  class TransactionService <<controller>>
+  class DepositService <<controller>>
+  class FinanceReport <<controller>>
+  class OrderRepository <<repository>>
+  class Ledger <<repository>>
+  class Order <<entity>>
+  class LedgerEntry <<entity>>
+}
+
+package "S4 Moderation & Reviews (Bryant)" as P4 #F3E5F5 {
+  class ReviewView <<view>>
+  class TabooWordView <<SU view>>
+  class ReviewService <<controller>>
+  class ModerationFilter <<controller>>
+  class ConductEnforcer <<controller>>
+  class TabooWordManager <<controller>>
+  class OrderListPolicy <<controller>>
+  class ReviewRepository <<repository>>
+  class Review <<entity>>
+}
+
+package "S5 RAG & Inventory (Rosina)" as P5 #E0F2F1 {
+  class ChatView <<view>>
+  class InventoryView <<SU view>>
+  class RagAssistant <<controller>>
+  class AccessPolicy <<controller>>
+  class InventoryManager <<controller>>
+  class VectorIndex <<embeddings>>
+  class OllamaClient <<Ollama>>
+}
+
+' ---- Shared shell ----
+MainWindow --> AuthView
+MainWindow --> HomeView
+MainWindow --> CatalogView
+MainWindow --> ChatView
+MainWindow --> SuspendedUsersView
+MainWindow --> FinanceView
+MainWindow --> TabooWordView
+MainWindow --> InventoryView
+MainWindow --> Session
+
+' ---- S1 internal ----
+AuthView --> BiometricAuth
+EnrollmentView --> BiometricAuth
+SuspendedUsersView --> AccountManager
+BiometricAuth --> FaceRecognizer
+BiometricAuth --> VoiceClassifier
+BiometricAuth --> AccountManager
+BiometricAuth ..> Session : creates
+AccountManager --> UserRepository
+TierPolicy --> UserRepository
+UserRepository ..> User
+
+' ---- S2 internal ----
+HomeView --> RecommendationEngine
+CatalogView --> SearchService
+CatalogView --> BookDetailView
+BookDetailView --> BrowseTracker
+BookDetailView --> PurchaseView
+BookDetailView --> ReviewView
+SearchService --> BookRepository
+SearchService --> ImageMatcher
+RecommendationEngine --> BookRepository
+RecommendationEngine --> BrowseTracker
+BookRepository ..> Book
+
+' ---- S3 internal ----
+PurchaseView --> TransactionService
+DepositView --> DepositService
+FinanceView --> FinanceReport
+TransactionService --> OrderRepository
+TransactionService --> Ledger
+DepositService --> Ledger
+FinanceReport --> Ledger
+FinanceReport --> OrderRepository
+OrderRepository ..> Order
+Ledger ..> LedgerEntry
+
+' ---- S4 internal ----
+ReviewView --> ReviewService
+TabooWordView --> TabooWordManager
+ReviewService --> ModerationFilter
+ReviewService --> ConductEnforcer
+ReviewService --> ReviewRepository
+ReviewService --> OrderListPolicy
+ModerationFilter --> TabooWordManager
+OrderListPolicy --> ReviewRepository
+ReviewRepository ..> Review
+
+' ---- S5 internal ----
+ChatView --> RagAssistant
+InventoryView --> InventoryManager
+RagAssistant --> AccessPolicy
+RagAssistant --> VectorIndex
+RagAssistant --> OllamaClient
+VectorIndex --> OllamaClient
+
+' ---- Cross-subsystem collaborations (bold red) ----
+TransactionService -[#C62828,bold]-> AccountManager : suspend on overdraft
+TransactionService -[#C62828,bold]-> TierPolicy : checkUpgrade
+TransactionService -[#C62828,bold]-> UserRepository : balance
+TransactionService -[#C62828,bold]-> BookRepository : decrementStock
+DepositService -[#C62828,bold]-> UserRepository : credit
+ConductEnforcer -[#C62828,bold]-> AccountManager : warn / suspend / demote
+ReviewService -[#C62828,bold]-> OrderRepository : hasPurchased
+ReviewService -[#C62828,bold]-> BookRepository : avgRating
+RecommendationEngine -[#C62828,bold]-> OrderRepository : purchase history
+RecommendationEngine -[#C62828,bold]-> Session : role
+RagAssistant -[#C62828,bold]-> FinanceReport : SU only
+RagAssistant -[#C62828,bold]-> Session : role
+InventoryManager -[#C62828,bold]-> BookRepository : add / remove
+InventoryManager -[#C62828,bold]-> BrowseTracker : least accessed
+InventoryManager -[#C62828,bold]-> OrderListPolicy : order lists
+
+' ---- Persistence ----
+UserRepository --> JsonStore
+BookRepository --> JsonStore
+OrderRepository --> JsonStore
+Ledger --> JsonStore
+ReviewRepository --> JsonStore
+
+legend bottom
+  Black arrows: calls inside one subsystem
+  <color:#C62828><b>Red arrows</b></color>: calls between subsystems
+  Dashed arrows: creates / returns entity
+endlegend
+@enduml

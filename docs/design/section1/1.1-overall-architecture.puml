@@ -1,0 +1,113 @@
+@startuml
+skinparam dpi 130
+skinparam shadowing false
+skinparam defaultFontName Arial
+skinparam defaultFontSize 12
+skinparam packageStyle rectangle
+skinparam ArrowColor #444444
+skinparam component {
+  BorderColor #555555
+  BackgroundColor #FFFFFF
+}
+
+title 1.1  Overall System Architecture: AI-Enabled Multimodal Smart Bookstore\n(local desktop app, MVC pattern, JSON file store, local AI)
+
+actor "Visitor (VS)" as VS
+actor "Customer (RC / VC)" as RC
+actor "Super-User (SU)" as SU
+node "Webcam + Microphone" as HW
+
+package "Desktop GUI: one window (View layer)" #FAFAFA {
+  component "MainWindow\n+ Session / role check" as MW
+  component "S1 views\nAuthView, EnrollmentView,\nSuspendedUsersView" as V1 #E3F2FD
+  component "S2 views\nHomeView, CatalogView,\nBookDetailView" as V2 #E8F5E9
+  component "S3 views\nPurchaseView, DepositView,\nFinanceView" as V3 #FFF3E0
+  component "S4 views\nReviewView, TabooWordView" as V4 #F3E5F5
+  component "S5 views\nChatView, InventoryView" as V5 #E0F2F1
+}
+
+package "Controller layer (business rules)" #FAFAFA {
+  component "S1 Auth & User Mgmt (Rasul)\nBiometricAuth, AccountManager,\nTierPolicy" as C1 #BBDEFB
+  component "S2 Catalog & Recommendation (Thierno)\nRecommendationEngine, SearchService,\nBrowseTracker" as C2 #C8E6C9
+  component "S3 Transactions & Finance (Dair)\nTransactionService, DepositService,\nFinanceReport" as C3 #FFE0B2
+  component "S4 Moderation & Reviews (Bryant)\nReviewService, ModerationFilter,\nConductEnforcer, TabooWordManager,\nOrderListPolicy" as C4 #E1BEE7
+  component "S5 RAG & Inventory (Rosina)\nRagAssistant, AccessPolicy,\nInventoryManager" as C5 #B2DFDB
+}
+
+package "Local AI services (no cloud)" #E8EAF6 {
+  component "FaceRecognizer\n(YOLOv8)" as AI1
+  component "VoiceClassifier\n(librosa + PyTorch)" as AI2
+  component "ImageMatcher\n(cover search)" as AI3
+  component "VectorIndex\n(RAG retrieval)" as AI4
+  component "Ollama\n(local LLM + embeddings)" as AI5
+}
+
+package "Model layer: repositories over JsonStore" #F5F5F5 {
+  component "UserRepository" as R1
+  component "BookRepository" as R2
+  component "OrderRepository\n+ Ledger" as R3
+  component "ReviewRepository" as R4
+  component "JsonStore\n(atomic read / write)" as JS
+}
+
+package "data/ folder (local files)" #FFFDE7 {
+  database "users.json" as F1
+  database "books.json\nbrowse_log.json" as F2
+  database "orders.json\nledger.json" as F3
+  database "reviews.json\ntaboo_words.json\norder_lists.json" as F4
+  folder "rag_docs/\nvector_index.json" as F5
+  folder "models/\ncovers/" as F6
+}
+
+VS --> MW
+RC --> MW
+SU --> MW
+HW --> V1 : face + voice samples
+
+MW --> V1
+MW --> V2
+MW --> V3
+MW --> V4
+MW --> V5
+
+V1 --> C1
+V2 --> C2
+V3 --> C3
+V4 --> C4
+V5 --> C5
+
+C3 ..> C1 : suspend / upgrade tier
+C4 ..> C1 : warn / suspend / demote
+C4 ..> C3 : purchaser check
+C5 ..> C3 : SU finance report
+C5 ..> C4 : to-order / no-order lists
+C2 ..> C3 : purchase history
+
+C1 --> AI1
+C1 --> AI2
+C2 --> AI3
+C5 --> AI4
+C5 --> AI5
+AI4 --> AI5 : embed()
+
+C1 --> R1
+C2 --> R2
+C3 --> R1
+C3 --> R2
+C3 --> R3
+C4 --> R4
+C5 --> R2
+
+R1 --> JS
+R2 --> JS
+R3 --> JS
+R4 --> JS
+JS --> F1
+JS --> F2
+JS --> F3
+JS --> F4
+AI4 --> F5
+AI1 --> F6
+AI2 --> F6
+AI3 --> F6
+@enduml

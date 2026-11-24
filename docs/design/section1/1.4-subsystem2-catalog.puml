@@ -1,0 +1,100 @@
+@startuml
+allowmixing
+skinparam dpi 130
+skinparam shadowing false
+skinparam classAttributeIconSize 0
+skinparam defaultFontName Arial
+skinparam defaultFontSize 12
+skinparam packageStyle rectangle
+skinparam ArrowColor #444444
+skinparam class {
+  BorderColor #555555
+  BackgroundColor #FFFFFF
+}
+hide empty members
+
+title 1.4  Subsystem 2: Catalog Search & Recommendation (Thierno)
+
+package "View (GUI)" #E8F5E9 {
+  class HomeView <<view>> {
+    +showTop3(books)
+  }
+  class CatalogView <<view>> {
+    +browse(category | author | year)
+    +searchText(keywords)
+    +searchImage(imagePath)
+    +showResults(books)
+  }
+  class BookDetailView <<view>> {
+    +showBook(book, reviews)
+  }
+}
+
+package "Controller" #C8E6C9 {
+  class RecommendationEngine <<controller>> {
+    +getTop3(session): Book[3]
+    -globalTop3(): Book[3]
+    -personalTop3(userId): Book[3]
+  }
+  class SearchService <<controller>> {
+    +browse(filter): Book[]
+    +searchText(keywords): Book[]
+    +searchImage(image): Book[]
+  }
+  class BrowseTracker <<controller>> {
+    +logView(userId, bookId)
+  }
+}
+
+package "Local AI model" #E8EAF6 {
+  class ImageMatcher <<local vision model>> {
+    +embed(image): vector
+    +nearest(vector, k): bookId[]
+  }
+}
+
+package "Model / Data" #F5F5F5 {
+  class Book <<entity>> {
+    bookId
+    title
+    author
+    category
+    year
+    price
+    stock
+    coverPath
+    avgRating
+  }
+  class BookRepository <<repository>> {
+    +get(bookId): Book
+    +query(filter): Book[]
+    +save(book)
+    +decrementStock(bookId)
+  }
+  database "books.json" as BJ
+  database "browse_log.json" as BL
+  folder "covers/ + image_index" as CI
+}
+
+package "From other subsystems" #EEEEEE {
+  class Session <<S1>>
+  class OrderRepository <<S3>>
+  class ReviewService <<S4>>
+}
+
+HomeView --> RecommendationEngine : getTop3()
+CatalogView --> SearchService
+CatalogView --> BookDetailView : open book
+BookDetailView --> BrowseTracker : logView()
+SearchService --> BookRepository
+SearchService --> ImageMatcher : image query
+ImageMatcher --> CI
+RecommendationEngine --> BookRepository
+RecommendationEngine --> BrowseTracker : read history
+RecommendationEngine ..> OrderRepository : read purchase history
+RecommendationEngine ..> Session : role, userId
+BookDetailView ..> ReviewService : load reviews
+BrowseTracker --> BL
+BookRepository ..> Book
+BookRepository --> BJ : read / write
+@enduml

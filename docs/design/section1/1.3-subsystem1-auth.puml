@@ -1,0 +1,111 @@
+@startuml
+allowmixing
+skinparam dpi 130
+skinparam shadowing false
+skinparam classAttributeIconSize 0
+skinparam defaultFontName Arial
+skinparam defaultFontSize 12
+skinparam packageStyle rectangle
+skinparam ArrowColor #444444
+skinparam class {
+  BorderColor #555555
+  BackgroundColor #FFFFFF
+}
+hide empty members
+
+title 1.3  Subsystem 1: Biometric Authentication & User Management (Rasul)
+
+package "View (GUI)" #E3F2FD {
+  class AuthView <<view>> {
+    +showLoginScreen()
+    +captureSamples(): image, audio
+    +enterAsVisitor()
+    +showResult(message)
+  }
+  class EnrollmentView <<view>> {
+    +captureTrainingSamples(userId)
+  }
+  class SuspendedUsersView <<SU view>> {
+    +listSuspended()
+    +onReinstateClicked(userId)
+  }
+}
+
+package "Controller" #BBDEFB {
+  class BiometricAuth <<controller>> {
+    +login(image, audio): Session
+    +enroll(userId, images, clips)
+  }
+  class AccountManager <<controller>> {
+    +checkStatus(userId): Status
+    +suspend(userId, reason)
+    +reinstate(userId)
+    +addWarning(userId)
+    +demote(userId)
+  }
+  class TierPolicy <<controller>> {
+    +checkUpgrade(userId): bool
+  }
+}
+
+package "Local AI models" #E8EAF6 {
+  class FaceRecognizer <<YOLOv8>> {
+    +detectFace(image): crop
+    +identify(crop): userId, confidence
+    +train(samples)
+  }
+  class VoiceClassifier <<librosa + PyTorch>> {
+    +extractFeatures(audio): MFCC
+    +identify(audio): userId, confidence
+    +train(samples)
+  }
+}
+
+package "Model / Data" #F5F5F5 {
+  class User <<entity>> {
+    userId
+    name
+    role: VS | RC | VC | SU
+    status: Normal | Suspended
+    balance
+    warnings
+    purchaseCount
+    totalSpent
+  }
+  class Session <<entity>> {
+    user
+    role
+    loginTime
+  }
+  class UserRepository <<repository>> {
+    +get(userId): User
+    +save(user)
+    +listSuspended(): User[]
+  }
+  database "users.json" as UJ
+  folder "models/\nface + voice weights" as BIO
+}
+
+package "Callers from other subsystems" #EEEEEE {
+  class TransactionService <<S3>>
+  class ConductEnforcer <<S4>>
+}
+
+AuthView --> BiometricAuth : submit samples
+EnrollmentView --> BiometricAuth : training samples
+BiometricAuth --> FaceRecognizer : classify face
+BiometricAuth --> VoiceClassifier : classify voice
+BiometricAuth --> AccountManager : checkStatus()
+BiometricAuth ..> Session : creates
+SuspendedUsersView --> AccountManager : reinstate()
+AccountManager --> UserRepository
+TierPolicy --> UserRepository
+UserRepository ..> User
+UserRepository --> UJ : read / write
+FaceRecognizer --> BIO
+VoiceClassifier --> BIO
+
+TransactionService ..> TierPolicy : after purchase
+TransactionService ..> AccountManager : suspend on overdraft
+ConductEnforcer ..> AccountManager : addWarning / suspend / demote
+@enduml

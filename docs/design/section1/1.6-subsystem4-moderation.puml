@@ -1,0 +1,96 @@
+@startuml
+allowmixing
+skinparam dpi 130
+skinparam shadowing false
+skinparam classAttributeIconSize 0
+skinparam defaultFontName Arial
+skinparam defaultFontSize 12
+skinparam packageStyle rectangle
+skinparam ArrowColor #444444
+skinparam class {
+  BorderColor #555555
+  BackgroundColor #FFFFFF
+}
+hide empty members
+
+title 1.6  Subsystem 4: Content Moderation & Community Reviews (Bryant)
+
+package "View (GUI)" #F3E5F5 {
+  class ReviewView <<view>> {
+    +openForm(book)
+    +submit(stars, text)
+    +showOutcome(message)
+  }
+  class TabooWordView <<SU view>> {
+    +listWords()
+    +addWord(word)
+    +removeWord(word)
+  }
+}
+
+package "Controller" #E1BEE7 {
+  class ReviewService <<controller>> {
+    +submitReview(user, book, stars, text)
+    +reviewsFor(bookId): Review[]
+    +weightedAverage(bookId): float
+  }
+  class ModerationFilter <<controller>> {
+    +scan(text): maskedText, tabooCount
+  }
+  class ConductEnforcer <<controller>> {
+    +onBlocked(user)
+  }
+  class TabooWordManager <<controller>> {
+    +add(word)
+    +remove(word)
+    +list(): word[]
+  }
+  class OrderListPolicy <<controller>> {
+    +evaluate(bookId)
+  }
+}
+
+package "Model / Data" #F5F5F5 {
+  class Review <<entity>> {
+    reviewId
+    userId
+    bookId
+    stars: 1..5
+    text
+    isPurchaser
+    weight
+    status: Published | Blocked
+  }
+  class ReviewRepository <<repository>> {
+    +add(review)
+    +byBook(bookId): Review[]
+  }
+  database "reviews.json" as RJ
+  database "taboo_words.json" as TJ
+  database "order_lists.json\n(to-order / no-order)" as OL
+}
+
+package "From other subsystems" #EEEEEE {
+  class AccountManager <<S1>>
+  class BookRepository <<S2>>
+  class OrderRepository <<S3>>
+  class InventoryManager <<S5>>
+}
+
+ReviewView --> ReviewService : submitReview()
+TabooWordView --> TabooWordManager
+ReviewService --> ModerationFilter : scan text
+ReviewService --> ConductEnforcer : if blocked
+ReviewService --> ReviewRepository
+ReviewService --> OrderListPolicy : after each rating
+ReviewService ..> OrderRepository : hasPurchased() sets weight
+ReviewService ..> BookRepository : update avgRating
+ModerationFilter --> TabooWordManager : current list
+TabooWordManager --> TJ
+ConductEnforcer ..> AccountManager : addWarning / suspend / demote
+OrderListPolicy --> ReviewRepository
+OrderListPolicy --> OL
+InventoryManager ..> OL : read lists
+ReviewRepository ..> Review
+ReviewRepository --> RJ
+@enduml
