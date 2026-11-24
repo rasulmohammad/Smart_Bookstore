@@ -1,0 +1,23 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+*.egg-info/
+dist/
+build/
+.pytest_cache/
+.ruff_cache/
+
+# Local runtime data (each machine keeps its own)
+data/*
+!data/.gitkeep
+
+# Trained models and large binaries
+*.pt
+*.pth
+*.onnx
+
+# OS / editor
+.DS_Store
+.vscode/
+.idea/
